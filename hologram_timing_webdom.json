@@ -1,1 +1,0 @@
-{'signal': [{'name': 'Clock', 'wave': 'p.......|...'}, {'name': 'MiDaS_Depth', 'wave': '0.1.0.1.|.0.'}, {'name': 'BlazePose_Pose', 'wave': '1.0.1.0.|.1.'}, {'name': 'Sync_Pulse', 'wave': '01010101|01.'}, {'name': 'Fusion_Output', 'wave': 'x.x.x.x.|.x.'}], 'head': {'text': 'HoloGram Circuit Timing Diagram'}, 'config': {'hscale': 1}}
