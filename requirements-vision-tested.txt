@@ -1,0 +1,12 @@
+# Exact versions used for delivered Python 3.12 CPU runs.
+# Use pyproject.toml extras for resolution on other Python versions/platforms.
+numpy==2.3.5
+scipy==1.17.0
+matplotlib==3.10.8
+opencv-contrib-python==4.14.0.94
+mediapipe==0.10.35
+absl-py==2.5.0
+flatbuffers==25.12.19
+sounddevice==0.5.6
+certifi==2026.7.22
+
