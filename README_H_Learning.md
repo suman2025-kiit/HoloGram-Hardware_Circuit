@@ -274,6 +274,112 @@ git push -u origin main
 
 No GitHub repository was created or pushed during this delivery. `.gitignore` excludes neural weights, large recording archives, personal live sessions and build files. The official data licence and attribution remain in the repository. Put the larger dataset archive in a release or provide the official download commands; do not treat it as MIT data.
 
+
+##For the data validation against different datasets:##
+
+# H Learning data starter
+
+This package provides a small example dataset and a collection workflow for the H-Learning paper. All populated observations are invented synthetic examples. No people were recruited, no camera or board was measured, and no MiDaS or BlazePose model was run to create these records. They demonstrate file structure and analysis only. They do not substantiate the paper's reported accuracy, latency, memory or power values.
+
+## Start here
+
+1. Open `H_Learning_Data_Starter.xlsx`. `Synthetic_demo` contains 90 example trials; `Real_trials` is a blank collection sheet with calculated columns. Neither sheet contains real experimental results.
+2. Read `data_dictionary.csv` before collecting observations. Use `real_templates/` to start your own logs. Preserve the CSV headers and use an empty field for missing/not-applicable data.
+3. Keep invented examples in `synthetic_demo/`. Put only actual collected observations in `real_templates/` or, preferably, copy the templates into a new folder named `real_run_001`.
+4. Run the demonstration with Python 3.10 or later, without installing packages:
+
+```bash
+python scripts/analyze.py --input synthetic_demo --mode demo --output results/DEMO_metrics.json
+```
+
+5. After collecting real data and filling the configuration, run:
+
+```bash
+python scripts/analyze.py --input real_run_001 --mode real --raw-root . --output results/real_metrics.json
+```
+
+The default mode is `real`. It rejects synthetic rows, missing raw evidence files, duplicate trial IDs, participant/sequence split leakage, and invalid intervals. The script calculates descriptive metrics, not significance tests or a publication acceptance decision. Workbook formulas update in the prepared 30-row real-entry area. Copy formulas AA:AD into new rows if you extend that area. Export only the raw table as CSV, not the Guide sheet.
+
+Real-mode analysis defaults to the held-out `test` split; demo mode defaults to `all`. You can specify `--split validation` for development reports. Do not pool training and test observations for final evaluation. Pose output is pooled over the selected records: restrict input to the method/protocol being evaluated before using it in a paper.
+
+## What is included
+
+| File | One row represents | Purpose |
+|---|---|---|
+| synthetic_demo/trials.csv | One interaction trial | 90 invented trials from six fictional participants, three input methods and five commands |
+| synthetic_demo/joints.csv | One joint in one frame | 120 invented records: three joints, 20 frames, two example trials |
+| synthetic_demo/power.csv | One power sample | 540 invented voltage/current samples linked by trial ID |
+| real_templates/trials.csv | One real interaction trial | Empty template with identical headers |
+| real_templates/joints.csv | One real joint in one frame | Empty pose-reference template |
+| real_templates/power.csv | One real power sample | Empty instrument-log template |
+| real_templates/image_pairs.csv | One aligned reference/prediction pair | Image evaluation manifest; no images or SSIM scores are supplied |
+| real_templates/learning_outcomes.csv | One participant, lesson and condition | Optional pre/post/retention and workload log; no survey responses are supplied |
+| real_templates/monitoring_events.csv | One annotated monitoring interval | Separate abnormal-motion/alert evaluation; never label motion as fraudulent intent |
+| config/real_config_template.json | One run configuration | Hardware, models, thresholds, measurement settings and provenance |
+
+Synthetic trials use a fixed random seed, 20261105. All three methods use the same toy delay/error generation rules. Example differences are random, not evidence that any method is better. The six fictional participants and sparse sample rates are not a recommended sample size or instrument configuration.
+
+## A practical collection plan
+
+### 1 Define the comparison before recording
+
+Choose a primary endpoint, such as unintended activations per minute or task completion rate. Compare the proposed FSM controller, direct gesture mapping and mouse/keyboard on the same objects, lesson content, target criteria and device configuration. Mouse/keyboard is a usability reference, not a camera-algorithm benchmark. For algorithm comparisons, replay the same held-out captures through each eligible vision/controller variant.
+
+Include selection, rotation, zoom and next-object tasks, plus fixed-duration no-command windows. Record dim light, occlusion, short noise bursts, deliberate cancellation, tracking loss and recovery. Change one mechanism at a time for ablations such as no temporal confirmation or no clock gating. Define the expected response and any exclusion rule in advance. Save every action to the raw UI log, even though the summary CSV retains only the first executed command.
+
+Begin with a small pilot to debug synchronization, task instructions and logging. Use pilot variability and a meaningful effect size to plan the final participant count. The sample here does not justify a specific final sample size. Randomize/counterbalance method order and use matched tasks to reduce practice effects. Obtain the approvals and participant consent required by your institution; use pseudonyms and store the participant-name key separately.
+
+### 2 Record raw evidence before calculating results
+
+For each trial retain the original RGB capture, any depth/reference capture, per-frame landmarks, raw UI events, state transitions, model confidence, and configuration. A saved capture manifest can point to large or restricted recordings. Store raw files under `raw/`, keep them unchanged, and write cleaned/derived records under `processed/`.
+
+Use `trial_id` to join logs. Use monotonic timestamps with documented clock synchronization. `input_event_ms` must come from independently annotated action onset. `display_update_ms` must identify the declared presentation boundary. A render-submission timestamp is not physical motion-to-photon latency. For physical display latency, use a synchronized external measurement such as a photodiode or high-speed camera and document the method.
+
+Keep a versioned configuration for camera intrinsics, model/checkpoint hashes, image resolution, quantization, gesture thresholds, FSM logic, device, operating system, software commit, display refresh rate and instrument calibration. The example memory column is peak resident process memory in MiB; it does not measure memory activity or transferred bytes.
+
+### 3 Keep training and evaluation separate
+
+For your own learned/tuned models, assign whole participants and source sequences to train, validation or test once. Do not randomly split neighbouring frames. Fit thresholds, depth alignment and any learned mapping on training/validation data and freeze them before final evaluation. Use official splits and protocols for public benchmarks. The supplied script checks participant and source-sequence disjointness in the example manifest, but cannot detect duplicated video bytes unless you also track hashes.
+
+If the study evaluates a fixed interface rather than training a model, identify the held-out evaluation cohort explicitly. Do not describe ordinary repeated interaction trials as model training. Keep the mapping of benchmark joints to BlazePose joints fixed and document missing joints, coordinate systems and any allowed alignment.
+
+### 4 Calculate each metric from its correct source
+
+| Metric | Calculation and required evidence |
+|---|---|
+| Correct command rate | Correctly executed intended commands / intended-command trials. NONE windows have a separate denominator. |
+| Task completion rate | Trials meeting the predefined object/task target / intended-task trials. A recognized command alone is insufficient. |
+| False activation rate per window | NONE windows containing an action / all predefined NONE windows. Do not call this a frame-based false-positive rate. |
+| Unintended actions per minute | Count all unintended actions / observation time in minutes. |
+| Response latency | Display-update time minus ground-truth input onset for correctly executed commands. Report the number of valid intervals, failures, median and tail latency. |
+| Tracking recovery | Recovery time minus tracking-loss onset. Report unrecovered episodes separately; the script's latency summary covers recovered intervals only. |
+| PCK at 0.1 m | Correct joints within 0.1 m / all usable ground-truth joints. Missing predictions count as failures. Predictions and reference must use the same calibrated metric frame. |
+| MPJPE | Mean Euclidean joint error, reported in mm, with the protocol and prediction coverage stated. The script uses available predictions and reports their coverage. |
+| Power and energy | P(t)=V(t)I(t). Integrate power over elapsed seconds using the trapezoidal rule; divide joules by 3.6 for mWh. Report instrument, sample rate and whole-system/device scope. |
+| Memory reduction | Compare the same defined memory metric on the same workload/device. Peak resident memory, traffic and memory activity are different quantities. |
+| SSIM | Requires aligned predicted and reference images, an explicitly defined reconstruction target, common resolution/range and a declared mask. No SSIM is calculated by this package. Do not calculate it from voltages or pose CSVs. |
+
+MiDaS relative depth values are not automatically metres. A metric PCK threshold needs an independently calibrated pose/reference coordinate system. If evaluating relative depth, specify and apply the appropriate benchmark alignment and depth metrics. Do not select alignment separately to improve each test example without declaring that protocol.
+
+For power comparisons, record the same workload and measurement boundary for baseline and proposed conditions. Six synthetic samples per five-second trial only demonstrate the schema; choose a real instrument/sample rate appropriate to transient power. The script reports the maximum sampled power, not a guaranteed instantaneous peak. Convert energy to battery percentage only using the stated usable battery capacity and assumptions; label that percentage as derived rather than measured charge depletion.
+
+### 5 Report uncertainty and provenance
+
+Repeated frames and trials from the same participant are correlated. Calculate participant-level paired differences and uncertainty for the main comparisons; do not treat thousands of frames as thousands of independent people. Report errors, exclusions, unsuccessful trials, missing predictions and unrecovered tracking episodes. The supplied descriptive report does not calculate confidence intervals or hypothesis tests.
+
+Use `results/DEMO_metrics.json` only to inspect the workflow. Actual paper tables must come from the real logs and a frozen analysis configuration. Preserve a table-to-input mapping, software version, run configuration and checksums so each published value can be reproduced. Adding a sample dataset does not resolve incorrect citations or validate a holographic display implementation.
+
+## Public datasets that can support individual components
+
+These datasets are not included in this package. Obtain them from their maintainers, follow their access/license conditions, use the official protocols and cite the original work.
+
+- **NYU Depth V2** provides indoor RGB/depth recordings, including aligned labeled image pairs and depth in metres. It can support depth evaluation, not your own interface usability or power claims. https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html
+- **MPI-INF-3DHP** provides human pose data with independent 3D ground truth and an indoor/outdoor evaluation benchmark. It can support a documented, joint-mapped pose evaluation. https://vcai.mpi-inf.mpg.de/3dhp-dataset/
+- **EgoGesture** provides color/depth hand-gesture recordings. It may support gesture recognition after defining which gestures correspond to your commands; it does not provide your H-Learning lesson outcomes. https://english.ia.cas.cn/jp/eiathesis/201807/t20180710_194944.html
+
+Real end-to-end H-Learning interaction, display timing, board power and educational outcomes require recordings from the implemented system and the appropriate study. Public vision datasets alone do not supply those measurements.
+
+
 ## Repository layout
 
 | Path | Purpose |
